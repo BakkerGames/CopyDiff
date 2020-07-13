@@ -52,7 +52,7 @@ namespace CopyDiff
             }
             try
             {
-                Console.WriteLine($"Copying from {fromPath} to {toPath}");
+                Console.WriteLine($"Copying from \"{fromPath}\" to \"{toPath}\"");
                 int copyCount = CopyAll(fromPath, toPath);
                 Console.WriteLine($"Files copied: {copyCount}");
             }
@@ -68,6 +68,10 @@ namespace CopyDiff
             int copyCount = 0;
             try
             {
+                if (!Directory.Exists(toPath))
+                {
+                    Directory.CreateDirectory(toPath);
+                }
                 foreach (string filename in Directory.GetFiles(fromPath))
                 {
                     string fileBaseName = filename.Substring(filename.LastIndexOf('\\') + 1);
