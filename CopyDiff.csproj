@@ -52,6 +52,6 @@
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
-    <PostBuildEvent>if exist "$(ProjectDir)bin\Release\$(TargetFileName)" xcopy /d /y "$(ProjectDir)bin\Release\$(TargetFileName)" "\Projects\EXE"</PostBuildEvent>
+    <PostBuildEvent>if exist "$(ProjectDir)bin\Release\$(TargetFileName)" xcopy /d /y "$(ProjectDir)bin\Release\$(TargetFileName)" "%25USERPROFILE%25\EXE"</PostBuildEvent>
   </PropertyGroup>
 </Project>
