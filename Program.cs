@@ -106,6 +106,8 @@ namespace CopyDiff
         private static bool InvalidFolder(string dirBaseName)
         {
             if (dirBaseName.StartsWith(".")) return true;
+            if (dirBaseName.StartsWith("cache", StringComparison.OrdinalIgnoreCase)) return true;
+            if (dirBaseName.StartsWith("temp", StringComparison.OrdinalIgnoreCase)) return true;
             return false;
         }
 
