@@ -13,29 +13,39 @@ namespace CopyDiff
             Options _options = new Options();
             if (args is null || args.Count() < 2)
             {
-                Console.WriteLine("Syntax: <from_path> <to_path>");
+                Console.WriteLine("Syntax: <from_path> <to_path> [options]");
+                Console.WriteLine("-v, --verbose - full file path");
+                Console.WriteLine("-x, --exclude <dir[,dir...]> - exclude directories");
                 return 1;
             }
-            for (int i = 0; i < args.Count(); i++)
+            int index = 0;
+            while (index < args.Count())
             {
-                if (args[i].Equals("-v", StringComparison.OrdinalIgnoreCase) ||
-                    args[i].Equals("--verbose", StringComparison.OrdinalIgnoreCase))
+                if (args[index].Equals("-v", StringComparison.OrdinalIgnoreCase) ||
+                    args[index].Equals("--verbose", StringComparison.OrdinalIgnoreCase))
                 {
                     _options.LongFilenames = true;
                 }
+                else if (args[index].Equals("-x", StringComparison.OrdinalIgnoreCase) ||
+                    args[index].Equals("--exclude", StringComparison.OrdinalIgnoreCase))
+                {
+                    index++;
+                    _options.ExcludeDirs = args[index].Split(',').ToList();
+                }
                 else if (string.IsNullOrEmpty(sourceDir))
                 {
-                    sourceDir = args[i];
+                    sourceDir = args[index];
                 }
                 else if (string.IsNullOrEmpty(targetDir))
                 {
-                    targetDir = args[i];
+                    targetDir = args[index];
                 }
                 else
                 {
-                    Console.WriteLine($"Argument not recognized: {args[i]}");
+                    Console.WriteLine($"Argument not recognized: {args[index]}");
                     return 1;
                 }
+                index++;
             }
             if (!Directory.Exists(sourceDir))
             {
@@ -85,7 +95,7 @@ namespace CopyDiff
                 foreach (string dirName in Directory.GetDirectories(sourceDir))
                 {
                     string dirBaseName = dirName.Substring(dirName.LastIndexOf('\\') + 1);
-                    if (InvalidFolder(dirBaseName))
+                    if (InvalidFolder(dirBaseName, _options))
                         continue;
                     CopyAll(Path.Combine(sourceDir, dirBaseName), Path.Combine(targetDir, dirBaseName), _options);
                 }
@@ -103,11 +113,14 @@ namespace CopyDiff
             return false;
         }
 
-        private static bool InvalidFolder(string dirBaseName)
+        private static bool InvalidFolder(string dirBaseName, Options _options)
         {
             if (dirBaseName.StartsWith(".")) return true;
-            if (dirBaseName.StartsWith("cache", StringComparison.OrdinalIgnoreCase)) return true;
-            if (dirBaseName.StartsWith("temp", StringComparison.OrdinalIgnoreCase)) return true;
+            foreach (string s in _options.ExcludeDirs)
+            {
+                if (s.Equals(dirBaseName, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
             return false;
         }
 
