@@ -4,14 +4,13 @@ using System.Linq;
 
 namespace CopyDiff
 {
-    class Program
+    public class Program
     {
-        static int foundCount = 0;
-
         static int Main(string[] args)
         {
-            string fromPath = "";
-            string toPath = "";
+            string sourceDir = "";
+            string targetDir = "";
+            Options _options = new Options();
             if (args is null || args.Count() < 2)
             {
                 Console.WriteLine("Syntax: <from_path> <to_path>");
@@ -19,42 +18,47 @@ namespace CopyDiff
             }
             for (int i = 0; i < args.Count(); i++)
             {
-                if (args[i].StartsWith("/") || args[i].StartsWith("--"))
+                if (args[i].Equals("-v", StringComparison.OrdinalIgnoreCase) ||
+                    args[i].Equals("--verbose", StringComparison.OrdinalIgnoreCase))
+                {
+                    _options.LongFilenames = true;
+                }
+                else if (string.IsNullOrEmpty(sourceDir))
+                {
+                    sourceDir = args[i];
+                }
+                else if (string.IsNullOrEmpty(targetDir))
+                {
+                    targetDir = args[i];
+                }
+                else
                 {
                     Console.WriteLine($"Argument not recognized: {args[i]}");
                     return 1;
                 }
-                if (fromPath.Length == 0)
-                {
-                    fromPath = args[i];
-                }
-                else if (toPath.Length == 0)
-                {
-                    toPath = args[i];
-                }
             }
-            if (!Directory.Exists(fromPath))
+            if (!Directory.Exists(sourceDir))
             {
-                Console.WriteLine($"Path not found: {fromPath}");
+                Console.WriteLine($"Path not found: {sourceDir}");
                 return 1;
             }
-            if (!Directory.Exists(toPath))
+            if (!Directory.Exists(targetDir))
             {
                 try
                 {
-                    Directory.CreateDirectory(toPath);
+                    Directory.CreateDirectory(targetDir);
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Error creating directory: {toPath}\r\n{ex.Message}");
+                    Console.WriteLine($"Error creating directory: {targetDir}\r\n{ex.Message}");
                     return 1;
                 }
             }
             try
             {
-                Console.WriteLine($"Copying from \"{fromPath}\" to \"{toPath}\"");
-                int copyCount = CopyAll(fromPath, toPath);
-                Console.WriteLine($"Files copied: {copyCount}");
+                Console.WriteLine($"Copying from \"{sourceDir}\" to \"{targetDir}\"");
+                CopyAll(sourceDir, targetDir, _options);
+                Console.WriteLine($"Files copied: {_options.CopyCount}");
             }
             catch (Exception)
             {
@@ -63,33 +67,29 @@ namespace CopyDiff
             return 0;
         }
 
-        private static int CopyAll(string fromPath, string toPath)
+        private static void CopyAll(string sourceDir, string targetDir, Options _options)
         {
-            int copyCount = 0;
             try
             {
-                if (!Directory.Exists(toPath))
+                if (!Directory.Exists(targetDir))
                 {
-                    Directory.CreateDirectory(toPath);
+                    Directory.CreateDirectory(targetDir);
                 }
-                foreach (string filename in Directory.GetFiles(fromPath))
+                foreach (string filename in Directory.GetFiles(sourceDir))
                 {
                     string fileBaseName = filename.Substring(filename.LastIndexOf('\\') + 1);
-                    if (InvalidFilename(fileBaseName)) continue;
-                    foundCount++;
-                    Console.Write($"{foundCount}\r");
-                    if (CopySingle(fileBaseName, fromPath, toPath))
-                    {
-                        copyCount++;
-                    }
+                    if (InvalidFilename(fileBaseName))
+                        continue;
+                    CopySingle(sourceDir, targetDir, fileBaseName, _options);
                 }
-                foreach (string dirName in Directory.GetDirectories(fromPath))
+                foreach (string dirName in Directory.GetDirectories(sourceDir))
                 {
                     string dirBaseName = dirName.Substring(dirName.LastIndexOf('\\') + 1);
-                    if (InvalidFolder(dirBaseName)) continue;
-                    copyCount += CopyAll(Path.Combine(fromPath, dirBaseName), Path.Combine(toPath, dirBaseName));
+                    if (InvalidFolder(dirBaseName))
+                        continue;
+                    CopyAll(Path.Combine(sourceDir, dirBaseName), Path.Combine(targetDir, dirBaseName), _options);
                 }
-                return copyCount;
+                return;
             }
             catch (Exception)
             {
@@ -111,47 +111,61 @@ namespace CopyDiff
             return false;
         }
 
-        private static bool CopySingle(string filename, string fromPath, string toPath)
+        private static void CopySingle(string sourceDir, string targetDir, string filename, Options _options)
         {
+            string fromFullPath = Path.Combine(sourceDir, filename);
+            string toFullPath = Path.Combine(targetDir, filename);
             try
             {
-                string fromFullPath = Path.Combine(fromPath, filename);
-                string toFullPath = Path.Combine(toPath, filename);
                 FileInfo fromFI = new FileInfo(fromFullPath);
                 FileInfo toFI = new FileInfo(toFullPath);
                 if ((fromFI.Attributes & FileAttributes.Hidden) == FileAttributes.Hidden)
                 {
-                    return false;
+                    return;
                 }
                 if ((fromFI.Attributes & FileAttributes.System) == FileAttributes.System)
                 {
-                    return false;
+                    return;
                 }
+                _options.FoundCount++;
+                Console.Write($"{_options.FoundCount}\r");
                 if (!File.Exists(toFullPath))
                 {
-                    Console.WriteLine(filename);
+                    if (_options.LongFilenames)
+                        Console.WriteLine(fromFullPath);
+                    else
+                        Console.WriteLine(filename);
                     File.Copy(fromFullPath, toFullPath);
-                    return true;
+                    _options.CopyCount++;
+                    return;
                 }
                 if (fromFI.Length != toFI.Length)
                 {
-                    Console.WriteLine(filename);
+                    if (_options.LongFilenames)
+                        Console.WriteLine(fromFullPath);
+                    else
+                        Console.WriteLine(filename);
                     File.Copy(fromFullPath, toFullPath, true);
-                    return true;
+                    _options.CopyCount++;
+                    return;
                 }
                 string md5From = MD5Utilities.CalcMD5FromFile(fromFullPath);
                 string md5To = MD5Utilities.CalcMD5FromFile(toFullPath);
                 if (md5From != md5To)
                 {
-                    Console.WriteLine(filename);
+                    if (_options.LongFilenames)
+                        Console.WriteLine(fromFullPath);
+                    else
+                        Console.WriteLine(filename);
                     File.Copy(fromFullPath, toFullPath, true);
-                    return true;
+                    _options.CopyCount++;
+                    return;
                 }
-                return false;
+                return;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error copying file: {filename}\r\n{ex.Message}");
+                Console.WriteLine($"Error copying file: {fromFullPath}\r\n{ex.Message}");
                 throw;
             }
         }
